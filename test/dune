@@ -6,6 +6,7 @@
 )
 (tests
   (names
+    ex1_1
     ex3_2_1
     ;ex3_2_2
     ex3_2_3

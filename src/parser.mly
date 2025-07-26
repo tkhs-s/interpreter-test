@@ -15,6 +15,7 @@ let rec make_fun_exp args body =(*args:関数引数のリスト,body:関数の�
 %token PLUS MULT LT AND OR(*ex3.2.3:&&,||に対応するトークンAND,OR*)
 %token IF THEN ELSE TRUE FALSE
 %token LBRACKET RBRACKET SEMICOLON CONS(*ex3.6.2:リスト表記*)
+%token CONCAT DOT_LBRACKET PRINT_STRING(*文字列型の値に対応*)
 
 %token LET IN EQ (*MiniML2のlet式*)
 %token RARROW FUN (*MiniML3の関数抽象*)
@@ -22,6 +23,7 @@ let rec make_fun_exp args body =(*args:関数引数のリスト,body:関数の�
 
 %token <int> INTV
 %token <Syntax.id> ID
+%token <string> STRINGV(* "hogehoge" *)
 
 %start toplevel
 %type <Syntax.program> toplevel
@@ -102,7 +104,11 @@ CONSExpr :
   | e=PExpr { e }
 
 PExpr :(*+*)
-    l=PExpr PLUS r=MExpr { BinOp (Plus, l, r) }
+    l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) }
+  | e=CONCATExpr { e }
+
+CONCATExpr :(* ^ *)
+    l=CONCATExpr CONCAT r=MExpr { StrConcatExp (l, r) }
   | e=MExpr { e }
 
 MExpr :(* * *)
@@ -112,6 +118,7 @@ MExpr :(* * *)
 (*関数適用式は他の演算子よりも結合が強いので演算子の最後に用いられる。また、左結合であるのでe1にAppExprを再帰的に用いている。*)
 AppExpr :(*MiniML3の関数適用式*)
     e1=AppExpr e2=AExpr { AppExp (e1, e2) }
+  | e1=AExpr DOT_LBRACKET e2=Expr RBRACKET { StrGetExp (e1, e2) }(* s.[n] *)
   | e=AExpr { e }
 
 AExpr :
@@ -122,6 +129,8 @@ AExpr :
   | LPAREN e=Expr RPAREN { e }
   | LBRACKET l=list_elements RBRACKET { ListExp l }(*ex3.6.2:リスト*)
   | LBRACKET RBRACKET { ListExp [] }(*ex3.6.2:空リスト*)
+  | i=STRINGV { SLit i }(* 文字列リテラル *)
+  | PRINT_STRING e=AExpr { PrintStrExp e }(* print_string s *)
 
 (*ex3.6.2:リストの中身*)
 list_elements :

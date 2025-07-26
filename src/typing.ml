@@ -13,7 +13,7 @@ type subst = (tyvar * ty) list
 let subst_type (subst : (tyvar * ty) list) (ty : ty) : ty =(*substは型変数→型の置換リスト、これをtyに用いてtyを返す型代入の関数*)
   let rec apply_subset (var, ty_subset) ty_target =(*substをtyに適用させる補助関数*)
     match ty_target with
-    | TyInt | TyBool -> ty_target(*基本型はそのまま*)
+    | TyInt | TyBool | TyString -> ty_target(*基本型はそのまま*)
     | TyVar id ->(
         if id = var then ty_subset(*対象の型変数なら置換*)
         else TyVar id)(*違う型変数ならそのまま*)
@@ -109,6 +109,31 @@ let rec ty_exp tyenv exp =
           Environment.Not_bound -> err ("variable not bound: " ^ x))(*未束縛ならエラー*)
   | ILit _ -> ([], TyInt)
   | BLit _ -> ([], TyBool)
+  (* 文字列型対応 *)
+  | SLit _ -> ([], TyString)
+  | StrConcatExp (exp1, exp2) ->(* s1^s2 *)
+    let (s1, ty1) = ty_exp tyenv exp1 in
+    let (s2, ty2) = ty_exp tyenv exp2 in
+    (* 制約: 引数は両方TyStringで結果もTyString *)
+    let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @
+              [ (ty1, TyString); (ty2, TyString) ] in
+    let s_final = unify eqs in
+    (s_final, subst_type s_final ty2)
+  | StrGetExp (exp1, exp2) ->(* s.[n]*)
+      let (s1, ty1) = ty_exp tyenv exp1 in(*文字列式の型推論*)
+      let (s2, ty2) = ty_exp tyenv exp2 in(*インデックス式の型推論*)
+      (*制約:exp1はTyString、exp2はTyIntである必要があり、結果はTyString*)
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) @ 
+                [(ty1, TyString); (ty2, TyInt)] in
+      let s_final = unify eqs in
+      (s_final, TyString)
+  | PrintStrExp exp ->(*print_string s*)
+      let (s, ty) = ty_exp tyenv exp in(*引数式の型推論*)
+      (*制約:引数はstring型である必要があり、結果は何らかの型(ここでは型変数を使用)*)
+      let ty_res = TyVar (fresh_tyvar ()) in(*print_stringの戻り値の型*)
+      let eqs = (eqs_of_subst s) @ [(ty, TyString)] in
+      let s_final = unify eqs in
+      (s_final, subst_type s_final ty_res)
   | BinOp (op, exp1, exp2) ->(*両方のオペランドの式を再帰的に処理してからty_primで演算を処理*)
       let (s1, ty1) = ty_exp tyenv exp1 in
       let (s2, ty2) = ty_exp tyenv exp2 in

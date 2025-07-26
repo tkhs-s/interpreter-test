@@ -7,6 +7,7 @@ type exval =
   | ProcV of id * exp * dnval Environment.t ref(* MiniML4 関数閉包内の環境を参照型で保持するように変更 *)
   | ConsV of exval * exval(*ex3.6.2:リスト*)
   | NilV(*ex3.6.2:空リスト*)
+  | StringV of string(*interpreter-test1 "hogehoge"*)
 and dnval = exval
 
 exception Error of string
@@ -30,6 +31,7 @@ let rec string_of_exval = function
       in
       "[" ^ list_to_string "" (ConsV (head, tail)) ^ "]"
   | NilV -> "[]"
+  | StringV s -> "\"" ^ s ^ "\""(* 文字列リテラル *)
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -57,6 +59,32 @@ let rec eval_exp env = function
       Environment.Not_bound -> err ("Variable not bound: " ^ x))
   | ILit i -> IntV i
   | BLit b -> BoolV b
+  (* 文字列型対応 *)
+  | SLit s ->StringV s
+  | StrConcatExp (exp1, exp2) ->(* s1^s2 *)
+    let s1 = eval_exp env exp1 in
+    let s2 = eval_exp env exp2 in
+    (match s1, s2 with
+      StringV s1, StringV s2 -> StringV (s1 ^ s2)
+    | _ -> err ("Both arguments must be string: ^"))
+  | StrGetExp (exp1, exp2) ->(* s.[n] *)
+      let s1 = eval_exp env exp1 in
+      let s2 = eval_exp env exp2 in
+      (match s1, s2 with
+        StringV s, IntV n ->
+          if n < 0 || n >= String.length s then
+            err ("string index out of bounds")
+          else
+            StringV (String.make 1 s.[n])
+      | _ -> err ("type error in string indexing"))
+  | PrintStrExp exp ->  (* print_string *)
+      let s = eval_exp env exp in
+      (match s with
+        StringV s -> 
+          print_string s;
+          flush_all ();
+          StringV s  (* 元の文字列を返す *)
+      | _ -> err ("type error in print_string"))
   (*ex3.6.2:リスト,exp_list:式のリスト*)
   | ListExp exp_list ->
       let evaluated_elements = List.map (eval_exp env) exp_list in(*List.mapでexp_listの各要素をeval_expで評価*)
@@ -124,6 +152,7 @@ let rec eval_exp env = function
     (*ダミーの環境への参照に，拡張された環境を破壊的代入してバックパッチ*)
         dummyenv := newenv;(*参照だから中身を変えれる*)
         eval_exp newenv exp2
+
 
 (*ex3.3.2:複数のlet宣言を連続して評価する関数 decls = letのリスト*)
 and eval_exp_decl_list env decls =
