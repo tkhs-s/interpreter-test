@@ -16,6 +16,7 @@ let rec make_fun_exp args body =(*args:関数引数のリスト,body:関数の�
 %token IF THEN ELSE TRUE FALSE
 %token LBRACKET RBRACKET SEMICOLON CONS(*ex3.6.2:リスト表記*)
 %token CONCAT DOT_LBRACKET PRINT_STRING(*文字列型の値に対応*)
+%token PROJ1 PROJ2 COMMA(*ペア型の値に対応*)
 
 %token LET IN EQ (*MiniML2のlet式*)
 %token RARROW FUN (*MiniML3の関数抽象*)
@@ -129,8 +130,13 @@ AExpr :
   | LPAREN e=Expr RPAREN { e }
   | LBRACKET l=list_elements RBRACKET { ListExp l }(*ex3.6.2:リスト*)
   | LBRACKET RBRACKET { ListExp [] }(*ex3.6.2:空リスト*)
+  (* 文字列型 *)
   | i=STRINGV { SLit i }(* 文字列リテラル *)
   | PRINT_STRING e=AExpr { PrintStrExp e }(* print_string s *)
+  (* ペア型 *)
+  | LPAREN e1=Expr COMMA e2=Expr RPAREN { PairExp (e1, e2) }
+  | PROJ1 e=AExpr { Proj1Exp e }
+  | PROJ2 e=AExpr { Proj2Exp e }
 
 (*ex3.6.2:リストの中身*)
 list_elements :

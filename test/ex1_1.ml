@@ -43,6 +43,6 @@ let dataset_for_eval = [
 ];;
 
 let () = ignore(run_test_tt_main (
-    "string_operations" >:::
+    "ex1_1" >:::
     gen_eval_tests dataset_for_eval
   ))

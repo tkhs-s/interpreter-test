@@ -10,7 +10,9 @@ let reservedWords = [
   ("let", Parser.LET);(*MiniML2のlet式 let*)
   ("fun", Parser.FUN);(*MiniML3の関数定義式*)
   ("rec", Parser.REC);(*MiniML4の再帰的関数定義*)
-  ("print_string", Parser.PRINT_STRING);(*interpreter-test1*)
+  ("print_string", Parser.PRINT_STRING);(* 文字列出力関数 *)
+  ("proj1", PROJ1 );(* proj1 e *)
+  ("proj2", PROJ2 );(* proj2 e *)
 ]
 }
 
@@ -35,6 +37,7 @@ rule main = parse
 | "[" { Parser.LBRACKET }(*ex3.6.2:リスト[*)
 | ";" { Parser.SEMICOLON }(*ex3.6.2:リスト;*)
 | "]" { Parser.RBRACKET }(*ex3.6.2:リスト]*)
+(* 文字列型 *)
 | "^" { Parser.CONCAT }(* s1^s2 *)
 | ".[" { Parser.DOT_LBRACKET }(* s.[n] *)
 | '"' [^ '"']* '"' (* "hogehoge" *)
@@ -42,6 +45,8 @@ rule main = parse
       let len = String.length s in
       Parser.STRINGV (String.sub s 1 (len - 2))
     }
+(* ペア型 *)
+| "," { COMMA } (* (e1, e2) *)
 
 | ['a'-'z'] ['a'-'z' '0'-'9' '_' '\'']*
     { let id = Lexing.lexeme lexbuf in

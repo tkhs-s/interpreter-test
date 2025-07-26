@@ -7,7 +7,8 @@ type exval =
   | ProcV of id * exp * dnval Environment.t ref(* MiniML4 関数閉包内の環境を参照型で保持するように変更 *)
   | ConsV of exval * exval(*ex3.6.2:リスト*)
   | NilV(*ex3.6.2:空リスト*)
-  | StringV of string(*interpreter-test1 "hogehoge"*)
+  | StringV of string(* 文字列型 "hogehoge"*)
+  | PairV of exval * exval(* ペア型 *)
 and dnval = exval
 
 exception Error of string
@@ -32,6 +33,8 @@ let rec string_of_exval = function
       "[" ^ list_to_string "" (ConsV (head, tail)) ^ "]"
   | NilV -> "[]"
   | StringV s -> "\"" ^ s ^ "\""(* 文字列リテラル *)
+  | PairV (e1, e2) ->
+    "(" ^ string_of_exval e1 ^ "," ^ string_of_exval e2 ^ ")"
 
 let pp_val v = print_string (string_of_exval v)
 
@@ -85,6 +88,20 @@ let rec eval_exp env = function
           flush_all ();
           StringV s  (* 元の文字列を返す *)
       | _ -> err ("type error in print_string"))
+  (* ペア型 *)
+  | PairExp (exp1, exp2) ->
+    let e1 = eval_exp env exp1 in
+    let e2 = eval_exp env exp2 in
+    PairV (e1, e2)
+  | Proj1Exp exp ->(* 第一要素取得 proj1 e *)
+      (match eval_exp env exp with
+        PairV (v1, _) -> v1
+      | _ -> err ("proj1 applied to non-pair value"))
+  
+  | Proj2Exp exp ->(* 第二要素取得 proj2 e *)
+      (match eval_exp env exp with
+        PairV (_, v2) -> v2
+      | _ -> err ("proj2 applied to non-pair value"))
   (*ex3.6.2:リスト,exp_list:式のリスト*)
   | ListExp exp_list ->
       let evaluated_elements = List.map (eval_exp env) exp_list in(*List.mapでexp_listの各要素をeval_expで評価*)

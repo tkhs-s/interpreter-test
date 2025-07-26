@@ -21,6 +21,8 @@ let subst_type (subst : (tyvar * ty) list) (ty : ty) : ty =(*substは型変数�
         TyFun (apply_subset (var, ty_subset) ty1, apply_subset (var, ty_subset) ty2)
     | TyList t ->(*リスト型も再帰的に処理*)
         TyList (apply_subset (var, ty_subset) t)
+    | TyPair (ty1, ty2) ->(* ペア型対応 *)
+        TyPair (apply_subset (var, ty_subset) ty1, apply_subset (var, ty_subset) ty2)
   in(*この適用補助関数を置換リストsubstの左から順番に適用*)
   List.fold_left (fun acc_ty subst_pair -> apply_subset subst_pair acc_ty) ty subst(*実行する関数、初期値、リストの並び*)
   (*funの中の第1引数:累積値、第2引数:リストの現在の要素*)
@@ -68,11 +70,13 @@ let rec unify (eqs: (ty * ty) list) : (tyvar * ty) list =
     match t1, t2 with
     | t1, t2 when t1 = t2 ->(*2.同一の型:int=intやalpha=alphaの場合、残りの制約集合に対して再帰的に単一化を行う*)
       unify rest_eqs
+    | TyPair (t1a, t1b), TyPair (t2a, t2b) -> (* ペア型対応 *)
+        unify ((t1a, t2a) :: (t1b, t2b) :: rest_eqs)
     | TyFun (t1_arg, t1_ret), TyFun (t2_arg, t2_ret) ->(*3.関数型:t1->t2 = t3->t4の場合、新たに2つの制約(引数同士の等式、返り値同士の等式)を追加し、再帰的に単一化*)
         unify ((t1_arg, t2_arg) :: (t1_ret, t2_ret) :: rest_eqs)
-      | TyList t1, TyList t2 ->(*4.リスト型:t1 list = t2 listの場合、リストの中身の型に対して制約を追加し、再帰的に単一化*)
+    | TyList t1, TyList t2 ->(*4.リスト型:t1 list = t2 listの場合、リストの中身の型に対して制約を追加し、再帰的に単一化*)
         unify ((t1, t2) :: rest_eqs)
-      | TyVar alpha, t | t, TyVar alpha ->(*5.型変数とそれ以外の型:alpha=intやalpha = beta->boolの場合。alpha=alphaのケースは2.同一の型で処理される*)
+    | TyVar alpha, t | t, TyVar alpha ->(*5.型変数とそれ以外の型:alpha=intやalpha = beta->boolの場合。alpha=alphaのケースは2.同一の型で処理される*)
         if occur_check alpha t then(*オカーチェック:型変数alphaがtの中に現れる場合。alpha = alpha->intのような制約は解決できない*)
           err "Unification Error: Occur check failed"
         else
@@ -80,7 +84,7 @@ let rec unify (eqs: (ty * ty) list) : (tyvar * ty) list =
           let substituted_rest_eqs = subst_eqs s_alpha_tau rest_eqs in(*残りの制約集合rest_eqsに型代入s_alpha_tauを適用*)
           let s_prime = unify substituted_rest_eqs in(*新しい型代入s_alpha_tauを適用した後の残りの制約に対して再帰的に単一化*)
           s_alpha_tau @ s_prime(*結果の型代入を合成:subst_typeはリストの先頭から代入を適用するためs_alpha_tauをs_primeの前に結合する*)
-      | _ ->(*6.その他の場合:int=boolやint = alpha->boolなど異なる構造を持つ型の間の等式はエラー*)
+    | _ ->(*6.その他の場合:int=boolやint = alpha->boolなど異なる構造を持つ型の間の等式はエラー*)
         err "Unification Error: Type mismatch"
 
 type tyenv = ty Environment.t(*型環境*)
@@ -134,6 +138,31 @@ let rec ty_exp tyenv exp =
       let eqs = (eqs_of_subst s) @ [(ty, TyString)] in
       let s_final = unify eqs in
       (s_final, subst_type s_final ty_res)
+  (* ペア型 *)
+  | PairExp (exp1, exp2) ->  (* ペア作成 (e1,e2) *)
+      let (s1, ty1) = ty_exp tyenv exp1 in
+      let (s2, ty2) = ty_exp tyenv exp2 in
+      let eqs = (eqs_of_subst s1) @ (eqs_of_subst s2) in
+      let s_final = unify eqs in
+      let ty1_final = subst_type s_final ty1 in
+      let ty2_final = subst_type s_final ty2 in
+      (s_final, TyPair (ty1_final, ty2_final))
+  | Proj1Exp exp ->  (* 第一要素取得 proj1 e *)
+      let (s, ty) = ty_exp tyenv exp in
+      let ty1 = TyVar (fresh_tyvar ()) in  (* 第一要素の型を表す新しい型変数 *)
+      let ty2 = TyVar (fresh_tyvar ()) in  (* 第二要素の型を表す新しい型変数 *)
+      (* 制約: expの型はペア型 ty1 * ty2 である必要がある *)
+      let eqs = (eqs_of_subst s) @ [(ty, TyPair (ty1, ty2))] in
+      let s_final = unify eqs in
+      (s_final, subst_type s_final ty1)  (* 第一要素の型を返す *)
+  | Proj2Exp exp ->  (* 第二要素取得 proj2 e *)
+      let (s, ty) = ty_exp tyenv exp in
+      let ty1 = TyVar (fresh_tyvar ()) in  (* 第一要素の型を表す新しい型変数 *)
+      let ty2 = TyVar (fresh_tyvar ()) in  (* 第二要素の型を表す新しい型変数 *)
+      (* 制約: expの型はペア型 ty1 * ty2 である必要がある *)
+      let eqs = (eqs_of_subst s) @ [(ty, TyPair (ty1, ty2))] in
+      let s_final = unify eqs in
+      (s_final, subst_type s_final ty2)  (* 第二要素の型を返す *)
   | BinOp (op, exp1, exp2) ->(*両方のオペランドの式を再帰的に処理してからty_primで演算を処理*)
       let (s1, ty1) = ty_exp tyenv exp1 in
       let (s2, ty2) = ty_exp tyenv exp2 in
