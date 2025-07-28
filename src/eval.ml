@@ -8,6 +8,7 @@ type exval =
   | ConsV of exval * exval(*ex3.6.2:リスト*)
   | NilV(*ex3.6.2:空リスト*)
   | StringV of string(* 文字列型 "hogehoge"*)
+  | UnitV
   | PairV of exval * exval(* ペア型 *)
 and dnval = exval
 
@@ -32,7 +33,8 @@ let rec string_of_exval = function
       in
       "[" ^ list_to_string "" (ConsV (head, tail)) ^ "]"
   | NilV -> "[]"
-  | StringV s -> "\"" ^ s ^ "\""(* 文字列リテラル *)
+  | StringV s -> "\"" ^ s ^ "\""(* 文字列リテラル、sはlexer.mllで""を除いているため新たに""追加 *)
+  | UnitV -> "()"(* print_string時の表示 *)
   | PairV (e1, e2) ->
     "(" ^ string_of_exval e1 ^ "," ^ string_of_exval e2 ^ ")"
 
@@ -63,38 +65,38 @@ let rec eval_exp env = function
   | ILit i -> IntV i
   | BLit b -> BoolV b
   (* 文字列型対応 *)
-  | SLit s ->StringV s
+  | SLit s ->StringV s (* 文字列 *)
   | StrConcatExp (exp1, exp2) ->(* s1^s2 *)
     let s1 = eval_exp env exp1 in
     let s2 = eval_exp env exp2 in
     (match s1, s2 with
-      StringV s1, StringV s2 -> StringV (s1 ^ s2)
+      StringV s1, StringV s2 -> StringV (s1 ^ s2)(* どちらもstring型なら連結 *)
     | _ -> err ("Both arguments must be string: ^"))
   | StrGetExp (exp1, exp2) ->(* s.[n] *)
       let s1 = eval_exp env exp1 in
       let s2 = eval_exp env exp2 in
       (match s1, s2 with
-        StringV s, IntV n ->
-          if n < 0 || n >= String.length s then
-            err ("string index out of bounds")
+        StringV s, IntV n ->(* 型が一致してかつ *)
+          if 0 <= n && n < String.length s then(* indexが正しいなら *)
+            StringV (String.make 1 s.[n])(* s.[n]を1文字の文字列としてStringVの引数に *)
           else
-            StringV (String.make 1 s.[n])
+            err ("string index out of bounds")
       | _ -> err ("type error in string indexing"))
   | PrintStrExp exp ->  (* print_string *)
       let s = eval_exp env exp in
       (match s with
         StringV s -> 
-          print_string s;
-          flush_all ();
-          StringV s  (* 元の文字列を返す *)
+          print_endline s;(* \nつきのprint\string これで改行して見やすくした *)
+          flush_all ();(* 画面出力 *)
+          UnitV  (* 何もない型 *)
       | _ -> err ("type error in print_string"))
   (* ペア型 *)
-  | PairExp (exp1, exp2) ->
+  | PairExp (exp1, exp2) ->(* ペア型 *)
     let e1 = eval_exp env exp1 in
     let e2 = eval_exp env exp2 in
     PairV (e1, e2)
   | Proj1Exp exp ->(* 第一要素取得 proj1 e *)
-      (match eval_exp env exp with
+      (match eval_exp env exp with(* expがPairVなら *)
         PairV (v1, _) -> v1
       | _ -> err ("proj1 applied to non-pair value"))
   

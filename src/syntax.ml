@@ -17,15 +17,15 @@ type exp =
   | LetRecExp of id * id * exp * exp (*MiniML4の再帰的関数定義 (関数名,関数の引数,関数の本体式,inの後ろの式)*)
   | ListExp of exp list(*ex3.6.2:リスト型*)
   | ConsExp of exp * exp(*ex3.6.2:cons演算子::*)
-  (*文字列型*)
-  | SLit of string(* "hogehoge" *)
-  | StrConcatExp of exp * exp(* s1^s2 *)
-  | StrGetExp of exp * exp(* s.[n] *)
-  | PrintStrExp of exp (* print_string s *)
+  (* 文字列型 *)
+  | SLit of string(* 文字列定数 "hogehoge" *)
+  | StrConcatExp of exp * exp(*　文字列連結 s1^s2 *)
+  | StrGetExp of exp * exp(*　文字列のn文字目取得 s.[n] *)
+  | PrintStrExp of exp (*　文字列出力関数 print_string s *)
   (* ペア型 *)
-  | PairExp of exp * exp(* (e1, e2) *)
-  | Proj1Exp of exp(* proj1 e *)
-  | Proj2Exp of exp(* proj2 e *)
+  | PairExp of exp * exp(* ペア(e1, e2) *)
+  | Proj1Exp of exp(* 第1要素取得 proj1 e *)
+  | Proj2Exp of exp(* 第2要素取得 proj2 e *)
 
 type program =
     Exp of exp
@@ -42,6 +42,7 @@ type ty =
   | TyFun of ty * ty(*T-Fun(t1,t2)は関数型t1 -> t2を表す*)
   | TyList of ty
   | TyString(* 文字列型 *)
+  | TyUnit(* print_string用 *)
   | TyPair of ty * ty(* ペア型 *)
 
 
@@ -68,6 +69,7 @@ let rec pp_ty ty =
       pp_ty t;
       print_string " list)"
   | TyString -> print_string "string"(* 文字列型 *)
+  | TyUnit -> print_string "unit"
   | TyPair (t1, t2) ->
       pp_ty t1;
       print_string " * ";
@@ -83,7 +85,8 @@ let rec string_of_ty = function(*ty -> string型の関数*)
   | TyList t ->
       "(" ^ string_of_ty t ^ " list)"
   | TyString -> "string"(* 文字列型 *)
-  | TyPair (t1, t2) ->
+  | TyUnit -> "unit"
+  | TyPair (t1, t2) ->(* ペア型 *)
        "(" ^ string_of_ty t1 ^ " * " ^ string_of_ty t2 ^ ")"
 
 (*呼び出すたびに他とかぶらない新しいtyvar型の値を返す関数、typing.mlにも同じ関数あり *)
@@ -105,4 +108,5 @@ let rec freevar_ty ty =
   | TyFun (t1, t2) -> union (freevar_ty t1) (freevar_ty t2)(*集合s1,s2の和集合*)
   | TyList t -> freevar_ty t
   | TyString -> empty(* 文字列型 *)
-  | TyPair (t1, t2) -> union (freevar_ty t1) (freevar_ty t2)
+  | TyUnit -> empty
+  | TyPair (t1, t2) -> union (freevar_ty t1) (freevar_ty t2)(* TyFunと同じ *)

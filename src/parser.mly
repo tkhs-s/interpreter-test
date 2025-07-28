@@ -96,20 +96,20 @@ ANDExpr :(*ex3.2.3:and*)
   | e=LTExpr { e }
 
 LTExpr :(*<*)
-    l=PExpr LT r=LTExpr { BinOp (Lt, l, r) }
+    l=CONSExpr LT r=LTExpr { BinOp (Lt, l, r) }
   | e=CONSExpr { e }
 
 (*ex3.6.2:cons演算子::の結合は<より強く+より弱い。結合性は右結合*)
 CONSExpr :
-    e1=PExpr CONS e2=CONSExpr { ConsExp (e1, e2) }
+    e1=CONCATExpr CONS e2=CONSExpr { ConsExp (e1, e2) }
+  | e=CONCATExpr { e }
+
+CONCATExpr :(* ^ 結合の強さはリストの::より強く+より弱い。右結合 *)
+    l=PExpr CONCAT r=CONCATExpr { StrConcatExp (l, r) }
   | e=PExpr { e }
 
 PExpr :(*+*)
-    l=PExpr PLUS r=CONCATExpr { BinOp (Plus, l, r) }
-  | e=CONCATExpr { e }
-
-CONCATExpr :(* ^ *)
-    l=CONCATExpr CONCAT r=MExpr { StrConcatExp (l, r) }
+    l=PExpr PLUS r=MExpr { BinOp (Plus, l, r) }
   | e=MExpr { e }
 
 MExpr :(* * *)
@@ -120,6 +120,9 @@ MExpr :(* * *)
 AppExpr :(*MiniML3の関数適用式*)
     e1=AppExpr e2=AExpr { AppExp (e1, e2) }
   | e1=AExpr DOT_LBRACKET e2=Expr RBRACKET { StrGetExp (e1, e2) }(* s.[n] *)
+  | PRINT_STRING e=AExpr { PrintStrExp e }(* print_string s *)
+  | PROJ1 e=AExpr { Proj1Exp e }(* ペア型の要素取得　proj1 (,) *)
+  | PROJ2 e=AExpr { Proj2Exp e }
   | e=AExpr { e }
 
 AExpr :
@@ -132,11 +135,8 @@ AExpr :
   | LBRACKET RBRACKET { ListExp [] }(*ex3.6.2:空リスト*)
   (* 文字列型 *)
   | i=STRINGV { SLit i }(* 文字列リテラル *)
-  | PRINT_STRING e=AExpr { PrintStrExp e }(* print_string s *)
   (* ペア型 *)
   | LPAREN e1=Expr COMMA e2=Expr RPAREN { PairExp (e1, e2) }
-  | PROJ1 e=AExpr { Proj1Exp e }
-  | PROJ2 e=AExpr { Proj2Exp e }
 
 (*ex3.6.2:リストの中身*)
 list_elements :

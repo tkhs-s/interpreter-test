@@ -29,15 +29,27 @@ let rec read_eval_print env tyenv = (*環境と型環境をREPLに渡し保持*)
   | _ ->
       (*単一宣言の場合：従来通り*)
     let (ty, tyenv) = ty_decl tyenv decl in (*let宣言のための型推論*)
-    let (id, newenv, v) = eval_decl env decl in(*現在の環境で式を評価*)
-      
-      Printf.printf "val %s : " id;
-      pp_ty ty;
-      print_string " = ";
-      pp_val v;
-      print_newline();
-      (* 型環境を次のループに渡す．let 宣言はまだないので，tyenv を新しくする必要はない． *)
-      read_eval_print newenv tyenv
+    match ty with
+      TyUnit ->
+        let (id, newenv, v) = eval_decl env decl in(*現在の環境で式を評価*)
+        
+        Printf.printf "%s : " id;
+        pp_ty ty;
+        print_string " = ";
+        pp_val v;
+        print_newline();
+        (* 型環境を次のループに渡す．let 宣言はまだないので，tyenv を新しくする必要はない． *)
+        read_eval_print newenv tyenv
+    | _ ->
+      let (id, newenv, v) = eval_decl env decl in(*現在の環境で式を評価*)
+        
+        Printf.printf "val %s : " id;
+        pp_ty ty;
+        print_string " = ";
+        pp_val v;
+        print_newline();
+        (* 型環境を次のループに渡す．let 宣言はまだないので，tyenv を新しくする必要はない． *)
+        read_eval_print newenv tyenv
 
 
 (*ex3.2.1大域環境の定義*)

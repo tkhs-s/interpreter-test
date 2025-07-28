@@ -11,8 +11,8 @@ let reservedWords = [
   ("fun", Parser.FUN);(*MiniML3の関数定義式*)
   ("rec", Parser.REC);(*MiniML4の再帰的関数定義*)
   ("print_string", Parser.PRINT_STRING);(* 文字列出力関数 *)
-  ("proj1", PROJ1 );(* proj1 e *)
-  ("proj2", PROJ2 );(* proj2 e *)
+  ("proj1", PROJ1 );(* ペアの第1要素取得 proj1 e *)
+  ("proj2", PROJ2 );(* ペアの第2要素取得 proj2 e *)
 ]
 }
 
@@ -41,9 +41,9 @@ rule main = parse
 | "^" { Parser.CONCAT }(* s1^s2 *)
 | ".[" { Parser.DOT_LBRACKET }(* s.[n] *)
 | '"' [^ '"']* '"' (* "hogehoge" *)
-    { let s = Lexing.lexeme lexbuf in
-      let len = String.length s in
-      Parser.STRINGV (String.sub s 1 (len - 2))
+    { let s = Lexing.lexeme lexbuf in(* 正則表現にマッチした文字列を取り出す(この段階では""付き) *)
+      let len = String.length s in(* ""付きの文字列の長さ *)
+      Parser.STRINGV (String.sub s 1 (len - 2))(* インデックス0とlen-1(最初と最後の"")を除いた文字列そのものをアクションに *)
     }
 (* ペア型 *)
 | "," { COMMA } (* (e1, e2) *)
